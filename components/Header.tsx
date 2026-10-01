@@ -2,14 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useCart } from "@/components/CartProvider";
 
-interface HeaderProps {
-  userEmail?: string | null;
-}
-
-export default function Header({ userEmail = null }: HeaderProps) {
+export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [cartCount] = useState<number>(0);
+  const { count: cartCount } = useCart();
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-sky-100 shadow-xs">
@@ -72,28 +69,12 @@ export default function Header({ userEmail = null }: HeaderProps) {
               Factory dashboard (demo)
             </Link>
 
-            {userEmail ? (
-              <div className="flex items-center gap-3 pl-2 border-l border-slate-200">
-                <span className="text-xs text-slate-600 max-w-[140px] truncate" title={userEmail}>
-                  {userEmail}
-                </span>
-                <form action="/auth/signout" method="post">
-                  <button
-                    type="submit"
-                    className="text-xs text-rose-600 hover:text-rose-700 font-medium"
-                  >
-                    Logout
-                  </button>
-                </form>
-              </div>
-            ) : (
-              <Link
-                href="/login"
-                className="inline-flex items-center justify-center px-4 py-1.5 text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors shadow-xs"
-              >
-                Login
-              </Link>
-            )}
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center px-4 py-1.5 text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors shadow-xs"
+            >
+              Login
+            </Link>
           </nav>
 
           {/* Mobile Menu Button */}
@@ -180,27 +161,13 @@ export default function Header({ userEmail = null }: HeaderProps) {
             </Link>
 
             <div className="pt-2 border-t border-slate-100">
-              {userEmail ? (
-                <div className="px-3 py-2 flex items-center justify-between">
-                  <span className="text-sm text-slate-600 truncate">{userEmail}</span>
-                  <form action="/auth/signout" method="post">
-                    <button
-                      type="submit"
-                      className="text-sm font-semibold text-rose-600 hover:text-rose-700"
-                    >
-                      Logout
-                    </button>
-                  </form>
-                </div>
-              ) : (
-                <Link
-                  href="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block text-center w-full px-4 py-2 text-base font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-lg shadow-xs"
-                >
-                  Login
-                </Link>
-              )}
+              <Link
+                href="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block text-center w-full px-4 py-2 text-base font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-lg shadow-xs"
+              >
+                Login
+              </Link>
             </div>
           </div>
         )}
