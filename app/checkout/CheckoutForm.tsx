@@ -33,6 +33,7 @@ export default function CheckoutForm({ userEmail }: { userEmail: string }) {
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
+  const [isOrderPlaced, setIsOrderPlaced] = useState(false);
 
   const totalNgn = items.reduce(
     (sum, item) => sum + item.unit_price_ngn * item.quantity,
@@ -98,13 +99,41 @@ export default function CheckoutForm({ userEmail }: { userEmail: string }) {
         return;
       }
 
-      // AC5.4: Clear cart and redirect to /order/[id]
+      // AC5.4: Transition immediately and open order confirmation
+      setIsOrderPlaced(true);
       clearCart();
       router.push(`/order/${result.orderId}`);
     } catch {
       setErrors({ general: "An unexpected network error occurred." });
       setSubmitting(false);
     }
+  }
+
+  if (isOrderPlaced) {
+    return (
+      <div className="aero-glass-panel rounded-2xl md:rounded-[28px] p-8 sm:p-14 text-center max-w-lg mx-auto">
+        <div className="w-16 h-16 rounded-2xl water-bubble-glow mx-auto flex items-center justify-center mb-5 shadow-inner">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className="w-8 h-8 text-emerald-600 animate-pulse"
+          >
+            <path
+              fillRule="evenodd"
+              d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.74-5.25z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </div>
+        <h2 className="text-xl sm:text-2xl font-bold text-[#001d35] mb-2">
+          Order Confirmed!
+        </h2>
+        <p className="text-sm text-[#3f4753]">
+          Opening your order confirmation receipt...
+        </p>
+      </div>
+    );
   }
 
   if (items.length === 0) {

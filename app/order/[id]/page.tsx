@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatNaira } from "@/lib/cart";
 import { formatFriendlyDate } from "@/lib/date";
+import ClearCartEffect from "./ClearCartEffect";
 
 interface OrderItemSnapshot {
   product_id: string;
@@ -42,6 +43,7 @@ export default async function OrderConfirmationPage({
 
   return (
     <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-14">
+      <ClearCartEffect />
       {/* Confirmation Header */}
       <div className="aero-glass-panel rounded-2xl md:rounded-[28px] p-8 sm:p-12 text-center mb-8 relative overflow-hidden">
         {/* Specular highlight arc */}
