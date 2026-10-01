@@ -3,13 +3,68 @@ import { createClient } from "@/lib/supabase/server";
 import type { Product } from "@/lib/types";
 import ProductCard from "@/components/ProductCard";
 
+const SEED_FALLBACK_PRODUCTS: Product[] = [
+  {
+    id: "seed-1",
+    name: "Pure Water, 5-bag batch",
+    description: "5 bags, about 20 sachets per bag",
+    price_ngn: 2400,
+    sort_order: 1,
+    active: true,
+  },
+  {
+    id: "seed-2",
+    name: "Pure Water, 10-bag batch",
+    description: "10 bags, about 20 sachets per bag",
+    price_ngn: 4600,
+    sort_order: 2,
+    active: true,
+  },
+  {
+    id: "seed-3",
+    name: "Pure Water, 20-bag batch",
+    description: "20 bags, about 20 sachets per bag",
+    price_ngn: 9000,
+    sort_order: 3,
+    active: true,
+  },
+  {
+    id: "seed-4",
+    name: "Table Water, 1 pack",
+    description: "One pack of bottled table water",
+    price_ngn: 1500,
+    sort_order: 4,
+    active: true,
+  },
+  {
+    id: "seed-5",
+    name: "Dispenser Refill, 1 bottle",
+    description: "One refill bottle for water dispensers",
+    price_ngn: 1600,
+    sort_order: 5,
+    active: true,
+  },
+];
+
 export default async function Home() {
-  const supabase = await createClient();
-  const { data: products } = await supabase
-    .from("products")
-    .select("*")
-    .eq("active", true)
-    .order("sort_order", { ascending: true });
+  let liveProducts: Product[] | null = null;
+
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("products")
+      .select("*")
+      .eq("active", true)
+      .order("sort_order", { ascending: true });
+    if (data && data.length > 0) {
+      liveProducts = data;
+    }
+  } catch {
+    // Supabase credentials not connected yet
+  }
+
+  const isLive = Boolean(liveProducts && liveProducts.length > 0);
+  const products: Product[] = liveProducts && liveProducts.length > 0 ? liveProducts : SEED_FALLBACK_PRODUCTS;
 
   return (
     <div className="flex-1">
@@ -79,25 +134,26 @@ export default async function Home() {
       {/* Products Section */}
       <section id="products" className="py-12 sm:py-16 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10">
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Available Water Products</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Select a product to start a one-time order or set up recurring delivery.
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Available Water Products</h2>
+            {!isLive && (
+              <span className="text-[11px] font-medium bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">
+                UI Preview Mode
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-slate-600">
+            {isLive
+              ? "Select a product to start a one-time order or set up recurring delivery."
+              : "Previewing product catalog layout locally. Connect Supabase to stream live database records."}
           </p>
         </div>
 
-        {products && products.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {(products as Product[]).map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/50 p-8 sm:p-12 text-center">
-            <p className="text-sm font-medium text-sky-900">
-              No products available right now. Please check back soon.
-            </p>
-          </div>
-        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {products.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
       </section>
     </div>
   );
