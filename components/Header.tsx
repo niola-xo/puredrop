@@ -13,7 +13,7 @@ export default function Header({ userEmail = null }: HeaderProps) {
   const { count: cartCount } = useCart();
 
   return (
-    <header className="bg-white/85 backdrop-blur-xl border-b border-white/80 sticky top-0 z-50 shadow-xs shadow-sky-900/5">
+    <header className="aero-glass-panel border-b border-white/80 sticky top-0 z-50 shadow-xs shadow-sky-900/5">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand Logo */}
