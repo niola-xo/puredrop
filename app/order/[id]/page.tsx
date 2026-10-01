@@ -94,8 +94,8 @@ export default async function OrderConfirmationPage({
               A confirmation email was sent to {order.user_email}.
             </p>
           ) : (
-            <p className="text-slate-500 bg-white/70 px-4 py-2 rounded-full inline-block">
-              Your order is saved, and factory dispatch has been notified.
+            <p className="text-amber-800 bg-amber-50/90 border border-amber-200/60 px-4 py-2 rounded-full inline-block">
+              Your order is saved, but we could not send the email.
             </p>
           )}
         </div>

@@ -6,6 +6,7 @@ import {
   isValidOneTimeDate,
   calculateFirstSubscriptionDeliveryDate,
 } from "@/lib/date";
+import { sendOrderConfirmationEmail } from "@/lib/mailgun";
 
 export interface CheckoutInput {
   customerName: string;
@@ -202,6 +203,21 @@ export async function placeOrder(input: CheckoutInput): Promise<CheckoutResult> 
         };
       }
 
+      // Step C: AC6.1 & AC6.3: Send confirmation email and record status
+      await handleOrderEmail(insertClient, {
+        to: user.email,
+        orderId: order.id,
+        orderType: "subscription",
+        customerName: customerName.trim(),
+        address: address.trim(),
+        landmark: landmark && landmark.trim().length > 0 ? landmark.trim() : null,
+        items: snapshotItems,
+        totalNgn,
+        deliveryDate: finalDeliveryDate,
+        frequency,
+        deliveryWeekday,
+      });
+
       revalidatePath("/subscription");
       return {
         success: true,
@@ -238,6 +254,19 @@ export async function placeOrder(input: CheckoutInput): Promise<CheckoutResult> 
         };
       }
 
+      // AC6.1 & AC6.3: Send confirmation email and record status
+      await handleOrderEmail(insertClient, {
+        to: user.email,
+        orderId: order.id,
+        orderType: "one_time",
+        customerName: customerName.trim(),
+        address: address.trim(),
+        landmark: landmark && landmark.trim().length > 0 ? landmark.trim() : null,
+        items: snapshotItems,
+        totalNgn,
+        deliveryDate: finalDeliveryDate,
+      });
+
       return {
         success: true,
         orderId: order.id,
@@ -246,6 +275,66 @@ export async function placeOrder(input: CheckoutInput): Promise<CheckoutResult> 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "An unexpected server error occurred.";
     return { success: false, error: message };
+  }
+}
+
+/**
+ * Helper to send email via Mailgun and persist status in orders table (AC6.1, AC6.3)
+ */
+async function handleOrderEmail(
+  client: Awaited<ReturnType<typeof createClient>> | Awaited<ReturnType<typeof createServiceClient>>,
+  payload: {
+    to: string;
+    orderId: string;
+    orderType: "one_time" | "subscription";
+    customerName: string;
+    address: string;
+    landmark?: string | null;
+    items: Array<{
+      product_id: string;
+      name: string;
+      unit_price_ngn: number;
+      quantity: number;
+    }>;
+    totalNgn: number;
+    deliveryDate: string;
+    frequency?: "weekly" | "monthly";
+    deliveryWeekday?: number;
+  }
+) {
+  let emailStatus: "sent" | "failed" = "failed";
+  let emailError: string | null = null;
+
+  try {
+    const res = await sendOrderConfirmationEmail(payload);
+    if (res.success) {
+      emailStatus = "sent";
+    } else {
+      emailStatus = "failed";
+      emailError = res.error || "Failed to send confirmation email.";
+      console.error("[Mailgun] Email delivery failed:", emailError);
+    }
+  } catch (err: unknown) {
+    emailStatus = "failed";
+    emailError = err instanceof Error ? err.message : "Mailgun send exception";
+    console.error("[Mailgun] Exception occurred:", emailError);
+  }
+
+  // Update orders row with email_status and email_error (AC6.3)
+  try {
+    const { error: updateError } = await client
+      .from("orders")
+      .update({
+        email_status: emailStatus,
+        email_error: emailError,
+      })
+      .eq("id", payload.orderId);
+
+    if (updateError) {
+      console.error("[Orders] Failed to update email_status:", updateError.message);
+    }
+  } catch (dbErr) {
+    console.error("[Orders] Exception updating email_status:", dbErr);
   }
 }
 
