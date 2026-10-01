@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import { CartProvider } from "@/components/CartProvider";
+import { createClient } from "@/lib/supabase/server";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -16,11 +17,23 @@ export const metadata: Metadata = {
     "Never run out of pure water again. Akoka & Yaba direct factory supply. Sachet water batches, bottled table water, and dispenser refills delivered on your schedule.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  let userEmail: string | null = null;
+
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    userEmail = user?.email ?? null;
+  } catch {
+    // Not logged in or Supabase not initialized
+  }
+
   return (
     <html
       lang="en"
@@ -37,7 +50,7 @@ export default function RootLayout({
         <div className="fixed -bottom-20 right-1/4 w-[600px] h-[400px] rounded-full bg-gradient-to-t from-cyan-300/35 to-blue-300/25 blur-[90px] pointer-events-none -z-10" />
 
         <CartProvider>
-          <Header />
+          <Header userEmail={userEmail} />
           <main className="flex-1 flex flex-col">{children}</main>
           <footer className="aero-glass-panel border-t border-white/80 mt-auto">
             <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
