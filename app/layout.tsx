@@ -1,15 +1,8 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import { CartProvider } from "@/components/CartProvider";
 import { createClient } from "@/lib/supabase/server";
-
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-plus-jakarta-sans",
-});
 
 export const metadata: Metadata = {
   title: "PureDrop | Fresh Pure Water Delivered to Your Doorstep",
@@ -35,10 +28,7 @@ export default async function RootLayout({
   }
 
   return (
-    <html
-      lang="en"
-      className={`${plusJakartaSans.variable} h-full antialiased`}
-    >
+    <html lang="en" className="h-full antialiased">
       <body className="min-h-screen flex flex-col relative overflow-x-hidden text-[#001d35] antialiased selection:bg-[#3cf9dc] selection:text-[#007061]">
         {/* Ambient Hydro Atmosphere with vivid, luminous backdrop blurs */}
         <div className="fixed inset-0 pointer-events-none -z-10 bg-gradient-to-b from-[#cae8ff] via-[#e5f2fd] to-[#d4f2ee]" />
