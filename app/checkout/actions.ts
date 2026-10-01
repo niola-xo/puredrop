@@ -1,7 +1,11 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { isValidOneTimeDate } from "@/lib/date";
+import {
+  isValidOneTimeDate,
+  calculateFirstSubscriptionDeliveryDate,
+} from "@/lib/date";
 
 export interface CheckoutInput {
   customerName: string;
@@ -9,7 +13,9 @@ export interface CheckoutInput {
   address: string;
   landmark?: string;
   orderType: "one_time" | "subscription";
-  deliveryDate: string;
+  deliveryDate?: string;
+  frequency?: "weekly" | "monthly";
+  deliveryWeekday?: number; // 1 = Monday ... 5 = Friday
   items: Array<{
     product_id: string;
     quantity: number;
@@ -19,6 +25,7 @@ export interface CheckoutInput {
 export interface CheckoutResult {
   success: boolean;
   orderId?: string;
+  subscriptionId?: string;
   error?: string;
 }
 
@@ -33,12 +40,21 @@ export async function placeOrder(input: CheckoutInput): Promise<CheckoutResult> 
     if (!user || !user.email) {
       return {
         success: false,
-        error: "You must be signed in to place an order.",
+        error: "You must be signed in to place an order or start a subscription.",
       };
     }
 
-    // 2. Validate required fields
-    const { customerName, phone, address, landmark, orderType, deliveryDate, items } = input;
+    // 2. Validate common required fields
+    const {
+      customerName,
+      phone,
+      address,
+      landmark,
+      orderType,
+      items,
+      frequency,
+      deliveryWeekday,
+    } = input;
 
     if (!customerName || customerName.trim().length === 0) {
       return { success: false, error: "Full name is required." };
@@ -53,20 +69,37 @@ export async function placeOrder(input: CheckoutInput): Promise<CheckoutResult> 
       return { success: false, error: "Delivery address is required." };
     }
 
-    if (orderType !== "one_time") {
-      return { success: false, error: "Unsupported order type." };
-    }
-
-    // AC4.3: Validate delivery date between tomorrow and 30 days ahead in Lagos time
-    if (!isValidOneTimeDate(deliveryDate)) {
-      return {
-        success: false,
-        error: "Delivery date must be between tomorrow and 30 days from today (Lagos time).",
-      };
-    }
-
     if (!items || items.length === 0) {
       return { success: false, error: "Your cart is empty." };
+    }
+
+    let finalDeliveryDate = input.deliveryDate;
+
+    if (orderType === "one_time") {
+      if (!finalDeliveryDate || !isValidOneTimeDate(finalDeliveryDate)) {
+        return {
+          success: false,
+          error: "Delivery date must be between tomorrow and 30 days from today (Lagos time).",
+        };
+      }
+    } else if (orderType === "subscription") {
+      if (frequency !== "weekly" && frequency !== "monthly") {
+        return { success: false, error: "Please select weekly or monthly frequency." };
+      }
+      if (
+        deliveryWeekday === undefined ||
+        deliveryWeekday < 1 ||
+        deliveryWeekday > 5
+      ) {
+        return {
+          success: false,
+          error: "Please select a weekday from Monday to Friday.",
+        };
+      }
+      // Calculate first delivery date using strict PRD Section 6 rules
+      finalDeliveryDate = calculateFirstSubscriptionDeliveryDate(deliveryWeekday);
+    } else {
+      return { success: false, error: "Invalid purchase type." };
     }
 
     // 3. AC5.1: Recalculate prices from the database `products` table (never trust client prices)
@@ -91,7 +124,7 @@ export async function placeOrder(input: CheckoutInput): Promise<CheckoutResult> 
       if (!dbProduct) {
         return {
           success: false,
-          error: `Product is no longer available.`,
+          error: `A product in your cart is no longer available.`,
         };
       }
       const qty = Math.max(1, Math.floor(item.quantity));
@@ -106,45 +139,156 @@ export async function placeOrder(input: CheckoutInput): Promise<CheckoutResult> 
       });
     }
 
-    // 4. AC5.2 & AC5.3: Insert into orders table
+    // 4. Save to database using service client if available, else user client with RLS
     const insertClient = process.env.SUPABASE_SERVICE_ROLE_KEY
       ? await createServiceClient()
       : userClient;
 
-    const { data: order, error: insertError } = await insertClient
-      .from("orders")
-      .insert({
-        user_id: user.id,
-        user_email: user.email,
-        customer_name: customerName.trim(),
-        phone: phone.trim(),
-        address: address.trim(),
-        landmark: landmark && landmark.trim().length > 0 ? landmark.trim() : null,
-        items: snapshotItems,
-        total_ngn: totalNgn,
-        order_type: "one_time",
-        subscription_id: null,
-        delivery_date: deliveryDate,
-        payment_status: "demo",
-        status: "pending",
-        email_status: "pending",
-      })
-      .select("id")
-      .single();
+    if (orderType === "subscription") {
+      // AC5.3: Subscription creation
+      // Step A: Insert into subscriptions
+      const { data: sub, error: subError } = await insertClient
+        .from("subscriptions")
+        .insert({
+          user_id: user.id,
+          user_email: user.email,
+          customer_name: customerName.trim(),
+          phone: phone.trim(),
+          address: address.trim(),
+          landmark: landmark && landmark.trim().length > 0 ? landmark.trim() : null,
+          items: snapshotItems,
+          total_ngn: totalNgn,
+          frequency,
+          delivery_weekday: deliveryWeekday,
+          next_delivery_date: finalDeliveryDate,
+          status: "active",
+        })
+        .select("id")
+        .single();
 
-    if (insertError || !order) {
+      if (subError || !sub) {
+        return {
+          success: false,
+          error: subError?.message || "Failed to create subscription record.",
+        };
+      }
+
+      // Step B: Insert the first order linked to this subscription
+      const { data: order, error: orderError } = await insertClient
+        .from("orders")
+        .insert({
+          user_id: user.id,
+          user_email: user.email,
+          customer_name: customerName.trim(),
+          phone: phone.trim(),
+          address: address.trim(),
+          landmark: landmark && landmark.trim().length > 0 ? landmark.trim() : null,
+          items: snapshotItems,
+          total_ngn: totalNgn,
+          order_type: "subscription",
+          subscription_id: sub.id,
+          delivery_date: finalDeliveryDate,
+          payment_status: "demo",
+          status: "pending",
+          email_status: "pending",
+        })
+        .select("id")
+        .single();
+
+      if (orderError || !order) {
+        return {
+          success: false,
+          error: orderError?.message || "Failed to create initial subscription order.",
+        };
+      }
+
+      revalidatePath("/subscription");
       return {
-        success: false,
-        error: insertError?.message || "Failed to save order to the database.",
+        success: true,
+        orderId: order.id,
+        subscriptionId: sub.id,
+      };
+    } else {
+      // AC5.2: One-time order creation
+      const { data: order, error: insertError } = await insertClient
+        .from("orders")
+        .insert({
+          user_id: user.id,
+          user_email: user.email,
+          customer_name: customerName.trim(),
+          phone: phone.trim(),
+          address: address.trim(),
+          landmark: landmark && landmark.trim().length > 0 ? landmark.trim() : null,
+          items: snapshotItems,
+          total_ngn: totalNgn,
+          order_type: "one_time",
+          subscription_id: null,
+          delivery_date: finalDeliveryDate,
+          payment_status: "demo",
+          status: "pending",
+          email_status: "pending",
+        })
+        .select("id")
+        .single();
+
+      if (insertError || !order) {
+        return {
+          success: false,
+          error: insertError?.message || "Failed to save order to the database.",
+        };
+      }
+
+      return {
+        success: true,
+        orderId: order.id,
       };
     }
-
-    return {
-      success: true,
-      orderId: order.id,
-    };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "An unexpected server error occurred.";
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * AC6.3: Cancel an existing subscription
+ * Updates status to 'cancelled' and sets cancelled_at timestamp.
+ * Enforces ownership so users can only cancel their own subscription.
+ */
+export async function cancelSubscription(subscriptionId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const userClient = await createClient();
+    const {
+      data: { user },
+    } = await userClient.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: "You must be signed in." };
+    }
+
+    const client = process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? await createServiceClient()
+      : userClient;
+
+    const { error } = await client
+      .from("subscriptions")
+      .update({
+        status: "cancelled",
+        cancelled_at: new Date().toISOString(),
+      })
+      .eq("id", subscriptionId)
+      .eq("user_id", user.id);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/subscription");
+    return { success: true };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to cancel subscription.";
     return { success: false, error: message };
   }
 }

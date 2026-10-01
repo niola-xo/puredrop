@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatNaira } from "@/lib/cart";
-import { formatFriendlyDate } from "@/lib/date";
+import { formatFriendlyDate, getWeekdayName } from "@/lib/date";
 import ClearCartEffect from "./ClearCartEffect";
 
 interface OrderItemSnapshot {
@@ -39,7 +39,18 @@ export default async function OrderConfirmationPage({
     notFound();
   }
 
+  let subscription = null;
+  if (order.subscription_id) {
+    const { data: subData } = await supabase
+      .from("subscriptions")
+      .select("id, frequency, delivery_weekday, next_delivery_date, status")
+      .eq("id", order.subscription_id)
+      .single();
+    subscription = subData;
+  }
+
   const items = (order.items as unknown as OrderItemSnapshot[]) || [];
+  const isSubscription = order.order_type === "subscription";
 
   return (
     <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-14">
@@ -65,13 +76,15 @@ export default async function OrderConfirmationPage({
         </div>
 
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 mb-3">
-          Order Successfully Placed
+          {isSubscription ? "Subscription Successfully Started" : "Order Successfully Placed"}
         </span>
         <h1 className="text-2xl sm:text-4xl font-extrabold text-[#001d35] tracking-tight mb-2">
           Thank You, {order.customer_name}!
         </h1>
         <p className="text-sm text-[#3f4753] max-w-lg mx-auto">
-          Your order has been recorded. Our factory drivers in Akoka will deliver your batch on the scheduled date.
+          {isSubscription
+            ? "Your recurring pure water subscription is active. Our factory drivers in Akoka will handle your scheduled deliveries."
+            : "Your order has been recorded. Our factory drivers in Akoka will deliver your batch on the scheduled date."}
         </p>
 
         {/* AC6.4: Email notification status message */}
@@ -93,7 +106,7 @@ export default async function OrderConfirmationPage({
         {/* Delivery Details */}
         <div className="aero-glass-panel rounded-2xl p-6 sm:p-8 space-y-4">
           <h2 className="text-base font-bold text-[#001d35] border-b border-white/70 pb-3">
-            Delivery Details
+            {isSubscription ? "First Delivery Details" : "Delivery Details"}
           </h2>
           <div className="space-y-2 text-xs">
             <div>
@@ -102,6 +115,14 @@ export default async function OrderConfirmationPage({
                 {formatFriendlyDate(order.delivery_date)}
               </span>
             </div>
+            {isSubscription && subscription && (
+              <div>
+                <span className="text-slate-400 block font-semibold uppercase">Recurrence</span>
+                <span className="font-bold text-sm text-[#0061a5] capitalize">
+                  {subscription.frequency} (Every {getWeekdayName(subscription.delivery_weekday)})
+                </span>
+              </div>
+            )}
             <div>
               <span className="text-slate-400 block font-semibold uppercase">Address</span>
               <span className="font-medium text-[#001d35]">{order.address}</span>
@@ -135,8 +156,8 @@ export default async function OrderConfirmationPage({
             </div>
             <div>
               <span className="text-slate-400 block font-semibold uppercase">Order Type</span>
-              <span className="font-medium text-[#001d35] capitalize">
-                {order.order_type.replace("_", "-")}
+              <span className="font-bold text-[#001d35] capitalize">
+                {isSubscription ? "Subscription (First Delivery)" : "One-Time Order"}
               </span>
             </div>
             <div>
@@ -160,7 +181,7 @@ export default async function OrderConfirmationPage({
       {/* Items Summary Table */}
       <div className="aero-glass-panel rounded-2xl md:rounded-[28px] p-6 sm:p-8 mb-8 space-y-4">
         <h2 className="text-base font-bold text-[#001d35] border-b border-white/70 pb-3">
-          Ordered Pure Water Batches
+          {isSubscription ? "Subscribed Items (Per Delivery)" : "Ordered Pure Water Batches"}
         </h2>
         <div className="divide-y divide-white/70">
           {items.map((item, idx) => (
@@ -179,7 +200,9 @@ export default async function OrderConfirmationPage({
         </div>
 
         <div className="pt-4 border-t border-white/70 flex items-center justify-between">
-          <span className="text-base font-bold text-[#001d35]">Total Paid</span>
+          <span className="text-base font-bold text-[#001d35]">
+            {isSubscription ? "Cycle Total" : "Total Paid"}
+          </span>
           <span className="text-2xl font-extrabold text-[#0061a5] tabular-nums">
             {formatNaira(order.total_ngn)}
           </span>
@@ -187,10 +210,18 @@ export default async function OrderConfirmationPage({
       </div>
 
       {/* Back to Products / Action */}
-      <div className="text-center">
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+        {isSubscription && (
+          <Link
+            href="/subscription"
+            className="w-full sm:w-auto px-8 py-3.5 rounded-full frutiger-gloss text-white text-sm font-bold shadow-lg shadow-sky-400/30 hover:brightness-110 active:scale-95 transition-all text-center"
+          >
+            Manage My Subscription
+          </Link>
+        )}
         <Link
           href="/"
-          className="inline-flex px-8 py-3.5 rounded-full frutiger-gloss text-white text-sm font-bold shadow-lg shadow-sky-400/30 hover:brightness-110 active:scale-95 transition-all"
+          className="w-full sm:w-auto px-8 py-3.5 rounded-full aero-glass-secondary text-[#0061a5] text-sm font-bold hover:bg-white/80 active:scale-95 transition-all text-center border border-white/90 shadow-xs"
         >
           Return to PureDrop Home
         </Link>

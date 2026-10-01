@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCart } from "@/components/CartProvider";
 import { formatNaira } from "@/lib/cart";
-import { getEarliestOneTimeDate, getLatestOneTimeDate } from "@/lib/date";
+import {
+  getEarliestOneTimeDate,
+  getLatestOneTimeDate,
+  calculateFirstSubscriptionDeliveryDate,
+  formatFriendlyDate,
+  WEEKDAYS,
+} from "@/lib/date";
 import { placeOrder } from "./actions";
 
 interface FormErrors {
@@ -27,9 +33,16 @@ export default function CheckoutForm({ userEmail }: { userEmail: string }) {
   const [landmark, setLandmark] = useState("");
   const [orderType, setOrderType] = useState<"one_time" | "subscription">("one_time");
 
+  // One-time state
   const earliestDate = getEarliestOneTimeDate();
   const latestDate = getLatestOneTimeDate();
   const [deliveryDate, setDeliveryDate] = useState(earliestDate);
+
+  // Subscription state (AC4.4)
+  const [frequency, setFrequency] = useState<"weekly" | "monthly">("weekly");
+  const [deliveryWeekday, setDeliveryWeekday] = useState<number>(1); // 1 = Monday
+
+  const calculatedSubFirstDate = calculateFirstSubscriptionDeliveryDate(deliveryWeekday);
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -58,10 +71,12 @@ export default function CheckoutForm({ userEmail }: { userEmail: string }) {
       errs.address = "Delivery address is required";
     }
 
-    if (!deliveryDate) {
-      errs.deliveryDate = "Delivery date is required";
-    } else if (deliveryDate < earliestDate || deliveryDate > latestDate) {
-      errs.deliveryDate = `Date must be between ${earliestDate} and ${latestDate}`;
+    if (orderType === "one_time") {
+      if (!deliveryDate) {
+        errs.deliveryDate = "Delivery date is required";
+      } else if (deliveryDate < earliestDate || deliveryDate > latestDate) {
+        errs.deliveryDate = `Date must be between ${earliestDate} and ${latestDate}`;
+      }
     }
 
     setErrors(errs);
@@ -86,7 +101,9 @@ export default function CheckoutForm({ userEmail }: { userEmail: string }) {
         address,
         landmark,
         orderType,
-        deliveryDate,
+        deliveryDate: orderType === "one_time" ? deliveryDate : calculatedSubFirstDate,
+        frequency: orderType === "subscription" ? frequency : undefined,
+        deliveryWeekday: orderType === "subscription" ? deliveryWeekday : undefined,
         items: items.map((i) => ({
           product_id: i.product_id,
           quantity: i.quantity,
@@ -127,10 +144,10 @@ export default function CheckoutForm({ userEmail }: { userEmail: string }) {
           </svg>
         </div>
         <h2 className="text-xl sm:text-2xl font-bold text-[#001d35] mb-2">
-          Order Confirmed!
+          {orderType === "subscription" ? "Subscription Started!" : "Order Confirmed!"}
         </h2>
         <p className="text-sm text-[#3f4753]">
-          Opening your order confirmation receipt...
+          Opening your confirmation receipt...
         </p>
       </div>
     );
@@ -252,11 +269,11 @@ export default function CheckoutForm({ userEmail }: { userEmail: string }) {
           </div>
         </div>
 
-        {/* Purchase Type & Date Schedule */}
+        {/* Purchase Type & Schedule */}
         <div className="aero-glass-panel rounded-2xl md:rounded-[28px] p-6 sm:p-8 space-y-5">
           <div className="border-b border-white/70 pb-3">
             <h2 className="text-lg font-bold text-[#001d35]">Purchase Type &amp; Schedule</h2>
-            <p className="text-xs text-[#3f4753]">Choose between one-time supply or subscription</p>
+            <p className="text-xs text-[#3f4753]">Choose between one-time batch or recurring supply</p>
           </div>
 
           {/* AC4.2: Purchase type selector */}
@@ -275,16 +292,13 @@ export default function CheckoutForm({ userEmail }: { userEmail: string }) {
             <button
               type="button"
               onClick={() => setOrderType("subscription")}
-              className={`py-3 px-4 rounded-xl text-xs font-bold transition-all text-center relative ${
+              className={`py-3 px-4 rounded-xl text-xs font-bold transition-all text-center ${
                 orderType === "subscription"
                   ? "frutiger-gloss text-white shadow-md"
                   : "text-[#3f4753] hover:text-[#0061a5]"
               }`}
             >
               Subscribe
-              <span className="ml-1 text-[10px] uppercase font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full">
-                Phase 4
-              </span>
             </button>
           </div>
 
@@ -315,8 +329,91 @@ export default function CheckoutForm({ userEmail }: { userEmail: string }) {
               )}
             </div>
           ) : (
-            <div className="p-4 rounded-xl bg-sky-50 border border-sky-200 text-xs text-[#0061a5] leading-relaxed">
-              Subscription settings (weekly/monthly recurrence and weekday delivery selection) will be unlocked in Phase 4. For now, please select <strong>One-time order</strong> to complete your order.
+            /* AC4.4: Subscription options (Frequency + Weekday + Calculated First Delivery) */
+            <div className="space-y-5">
+              {/* Frequency Radios */}
+              <div>
+                <label className="block text-xs font-bold text-[#001d35] uppercase tracking-wider mb-2">
+                  Delivery Frequency <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label
+                    className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                      frequency === "weekly"
+                        ? "bg-sky-50 border-[#0061a5] ring-2 ring-sky-200 text-[#0061a5]"
+                        : "bg-white/80 border-slate-200 text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="frequency"
+                      value="weekly"
+                      checked={frequency === "weekly"}
+                      onChange={() => setFrequency("weekly")}
+                      className="text-[#0061a5] focus:ring-[#0061a5]"
+                    />
+                    <div>
+                      <span className="text-xs font-bold block">Weekly</span>
+                      <span className="text-[10px] text-slate-500">Every 7 days</span>
+                    </div>
+                  </label>
+
+                  <label
+                    className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                      frequency === "monthly"
+                        ? "bg-sky-50 border-[#0061a5] ring-2 ring-sky-200 text-[#0061a5]"
+                        : "bg-white/80 border-slate-200 text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="frequency"
+                      value="monthly"
+                      checked={frequency === "monthly"}
+                      onChange={() => setFrequency("monthly")}
+                      className="text-[#0061a5] focus:ring-[#0061a5]"
+                    />
+                    <div>
+                      <span className="text-xs font-bold block">Monthly</span>
+                      <span className="text-[10px] text-slate-500">Every 4 weeks (28 days)</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Delivery Day Dropdown (Monday to Friday, no weekends) */}
+              <div>
+                <label className="block text-xs font-bold text-[#001d35] uppercase tracking-wider mb-1.5">
+                  Preferred Delivery Day <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={deliveryWeekday}
+                  onChange={(e) => setDeliveryWeekday(Number(e.target.value))}
+                  className="w-full px-4 py-3 rounded-xl bg-white/80 border border-sky-200 text-sm text-[#001d35] font-semibold focus:outline-hidden focus:border-[#0061a5] focus:ring-2 focus:ring-sky-200"
+                >
+                  {WEEKDAYS.map((day) => (
+                    <option key={day.value} value={day.value}>
+                      {day.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Deliveries operate Monday through Friday (no weekends).
+                </p>
+              </div>
+
+              {/* Calculated First Delivery Date (Section 6 rules) */}
+              <div className="p-4 rounded-2xl bg-sky-50/80 border border-sky-200 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#0061a5] block">
+                  Calculated First Delivery
+                </span>
+                <p className="text-base font-extrabold text-[#001d35]">
+                  {formatFriendlyDate(calculatedSubFirstDate)}
+                </p>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Based on current Lagos time and the 14:00 cutoff rule. Following deliveries will automatically occur {frequency === "weekly" ? "every week" : "every 4 weeks"} on that weekday.
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -326,9 +423,16 @@ export default function CheckoutForm({ userEmail }: { userEmail: string }) {
       <div className="lg:col-span-5 space-y-6">
         {/* AC4.5: Order Summary */}
         <div className="aero-glass-panel rounded-2xl md:rounded-[28px] p-6 sm:p-8 space-y-4">
-          <h2 className="text-lg font-bold text-[#001d35] border-b border-white/70 pb-3">
-            Order Summary
-          </h2>
+          <div className="flex items-center justify-between border-b border-white/70 pb-3">
+            <h2 className="text-lg font-bold text-[#001d35]">
+              {orderType === "subscription" ? "Subscription Summary" : "Order Summary"}
+            </h2>
+            {orderType === "subscription" && (
+              <span className="text-[11px] font-bold text-[#0061a5] bg-sky-100 px-2.5 py-0.5 rounded-full capitalize">
+                {frequency} Cycle
+              </span>
+            )}
+          </div>
 
           <div className="divide-y divide-white/70 max-h-72 overflow-y-auto pr-1">
             {items.map((item) => (
@@ -347,7 +451,9 @@ export default function CheckoutForm({ userEmail }: { userEmail: string }) {
           </div>
 
           <div className="pt-4 border-t border-white/70 flex items-center justify-between">
-            <span className="text-sm font-bold text-[#001d35]">Total (NGN)</span>
+            <span className="text-sm font-bold text-[#001d35]">
+              {orderType === "subscription" ? "Per Delivery (NGN)" : "Total (NGN)"}
+            </span>
             <span className="text-2xl font-extrabold text-[#0061a5] tabular-nums">
               {formatNaira(totalNgn)}
             </span>
@@ -362,19 +468,19 @@ export default function CheckoutForm({ userEmail }: { userEmail: string }) {
           </div>
 
           <p className="text-xs text-[#3f4753] leading-relaxed">
-            This is a test environment. No card number, expiration date, or CVV is required. Clicking the button below will immediately simulate a successful payment and record your order in Supabase.
+            This is a test environment. No card number, expiration date, or CVV is required. Clicking the button below will record your {orderType === "subscription" ? "recurring subscription" : "order"} in Supabase.
           </p>
 
           {/* AC4.7: Main Button ("Place order" for one-time, "Start subscription" for subscribe) */}
           <button
             type="submit"
-            disabled={submitting || orderType !== "one_time"}
+            disabled={submitting}
             className="w-full py-4 px-6 rounded-full frutiger-gloss text-white font-extrabold text-base shadow-xl shadow-sky-400/30 hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? (
               <span className="inline-flex items-center gap-2">
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Processing order...
+                Processing...
               </span>
             ) : orderType === "one_time" ? (
               "Place order"
