@@ -398,11 +398,11 @@ export default function CheckoutForm({ userEmail }: { userEmail: string }) {
                   ))}
                 </select>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Deliveries operate Monday through Friday (no weekends).
+                  Deliveries operate Monday through Sunday.
                 </p>
               </div>
 
-              {/* Calculated First Delivery Date (Section 6 rules) */}
+              {/* Calculated First Delivery Date (PRD Section 8 rules) */}
               <div className="p-4 rounded-2xl bg-sky-50/80 border border-sky-200 space-y-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#0061a5] block">
                   Calculated First Delivery
@@ -411,7 +411,7 @@ export default function CheckoutForm({ userEmail }: { userEmail: string }) {
                   {formatFriendlyDate(calculatedSubFirstDate)}
                 </p>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Based on current Lagos time and the 14:00 cutoff rule. Following deliveries will automatically occur {frequency === "weekly" ? "every week" : "every 4 weeks"} on that weekday.
+                  First delivery is scheduled for the first occurrence of your chosen weekday at least 1 day after today (Lagos time). Subsequent deliveries occur {frequency === "weekly" ? "every 7 days" : "every 28 days"}.
                 </p>
               </div>
             </div>

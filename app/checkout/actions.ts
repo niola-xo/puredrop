@@ -16,7 +16,7 @@ export interface CheckoutInput {
   orderType: "one_time" | "subscription";
   deliveryDate?: string;
   frequency?: "weekly" | "monthly";
-  deliveryWeekday?: number; // 1 = Monday ... 5 = Friday
+  deliveryWeekday?: number; // 0 = Sunday, 1 = Monday ... 6 = Saturday
   items: Array<{
     product_id: string;
     quantity: number;
@@ -89,15 +89,15 @@ export async function placeOrder(input: CheckoutInput): Promise<CheckoutResult> 
       }
       if (
         deliveryWeekday === undefined ||
-        deliveryWeekday < 1 ||
-        deliveryWeekday > 5
+        deliveryWeekday < 0 ||
+        deliveryWeekday > 6
       ) {
         return {
           success: false,
-          error: "Please select a weekday from Monday to Friday.",
+          error: "Please select a weekday from Monday to Sunday.",
         };
       }
-      // Calculate first delivery date using strict PRD Section 6 rules
+      // Calculate first delivery date using strict PRD Section 8 rules
       finalDeliveryDate = calculateFirstSubscriptionDeliveryDate(deliveryWeekday);
     } else {
       return { success: false, error: "Invalid purchase type." };

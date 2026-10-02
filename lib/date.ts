@@ -11,6 +11,8 @@ export const WEEKDAYS = [
   { value: 3, label: "Wednesday" },
   { value: 4, label: "Thursday" },
   { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+  { value: 0, label: "Sunday" },
 ] as const;
 
 export function getWeekdayName(weekdayNumber: number): string {
@@ -74,35 +76,24 @@ export function isValidOneTimeDate(dateStr: string): boolean {
 }
 
 /**
- * Calculate the first subscription delivery date based on PRD Section 6 rules:
- * - Timezone: Africa/Lagos.
- * - No deliveries on Saturday or Sunday.
- * - Cutoff rule: Weekdays before 14:00 require 1 day notice (earliest is tomorrow).
- *   Weekdays at or after 14:00, or Saturday/Sunday, require 2 days notice.
- * - First delivery date is the next occurrence of chosen weekday (1-5) on or after the earliest allowable date.
+ * Calculate the first subscription delivery date based on PRD Section 8 rules:
+ * The first delivery is the first occurrence of the chosen weekday (0-6)
+ * that is at least 1 day after today (Africa/Lagos).
  */
 export function calculateFirstSubscriptionDeliveryDate(
   chosenWeekday: number,
   overrideNow?: Date
 ): string {
   const lagos = overrideNow ?? getLagosNow();
-  const currentDay = lagos.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
-  const currentHour = lagos.getHours();
 
-  // Weekday before 14:00 requires 1 day; after 14:00 or weekends requires 2 days
-  const isWeekday = currentDay >= 1 && currentDay <= 5;
-  const isBeforeCutoff = isWeekday && currentHour < 14;
-  const noticeDays = isBeforeCutoff ? 1 : 2;
-
-  // Earliest possible date
-  const earliest = new Date(
+  // Earliest possible date is tomorrow (at least 1 day after today in Lagos)
+  const candidate = new Date(
     lagos.getFullYear(),
     lagos.getMonth(),
-    lagos.getDate() + noticeDays
+    lagos.getDate() + 1
   );
 
-  // Find the next occurrence of chosenWeekday that is >= earliest
-  const candidate = new Date(earliest);
+  // Find the next occurrence of chosenWeekday that is >= tomorrow
   while (candidate.getDay() !== chosenWeekday) {
     candidate.setDate(candidate.getDate() + 1);
   }
