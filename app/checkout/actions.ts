@@ -218,6 +218,13 @@ export async function placeOrder(input: CheckoutInput): Promise<CheckoutResult> 
         deliveryWeekday,
       });
 
+      // AC-W1.4: Delete user's cart_items rows after successful subscription
+      try {
+        await insertClient.from("cart_items").delete().eq("user_id", user.id);
+      } catch (cartErr) {
+        console.error("[Cart] Error clearing cart_items after subscription:", cartErr);
+      }
+
       revalidatePath("/subscription");
       return {
         success: true,
@@ -266,6 +273,13 @@ export async function placeOrder(input: CheckoutInput): Promise<CheckoutResult> 
         totalNgn,
         deliveryDate: finalDeliveryDate,
       });
+
+      // AC-W1.4: Delete user's cart_items rows after successful one-time order
+      try {
+        await insertClient.from("cart_items").delete().eq("user_id", user.id);
+      } catch (cartErr) {
+        console.error("[Cart] Error clearing cart_items after order:", cartErr);
+      }
 
       return {
         success: true,

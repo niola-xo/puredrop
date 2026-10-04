@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useCart } from "@/components/CartProvider";
 import { formatNaira } from "@/lib/cart";
+import { getProductImage } from "@/lib/products";
 import {
   getEarliestOneTimeDate,
   getLatestOneTimeDate,
@@ -436,14 +438,25 @@ export default function CheckoutForm({ userEmail }: { userEmail: string }) {
 
           <div className="divide-y divide-white/70 max-h-72 overflow-y-auto pr-1">
             {items.map((item) => (
-              <div key={item.product_id} className="py-3 flex items-center justify-between text-xs">
-                <div>
-                  <p className="font-bold text-[#001d35]">{item.name}</p>
-                  <p className="text-slate-500">
-                    {item.quantity} &times; {formatNaira(item.unit_price_ngn)}
-                  </p>
+              <div key={item.product_id} className="py-3 flex items-center justify-between text-xs gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-10 h-10 rounded-lg bg-sky-50 border border-sky-200/80 overflow-hidden flex items-center justify-center shrink-0 relative">
+                    <Image
+                      src={getProductImage(item.name).src}
+                      alt={getProductImage(item.name).alt}
+                      fill
+                      className="object-contain p-0.5"
+                      sizes="40px"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-[#001d35] truncate">{item.name}</p>
+                    <p className="text-slate-500">
+                      {item.quantity} &times; {formatNaira(item.unit_price_ngn)}
+                    </p>
+                  </div>
                 </div>
-                <span className="font-extrabold text-[#001d35] tabular-nums">
+                <span className="font-extrabold text-[#001d35] tabular-nums shrink-0">
                   {formatNaira(item.unit_price_ngn * item.quantity)}
                 </span>
               </div>

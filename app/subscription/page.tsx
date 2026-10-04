@@ -1,8 +1,10 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatNaira } from "@/lib/cart";
 import { formatFriendlyDate, getWeekdayName } from "@/lib/date";
+import { getProductImage } from "@/lib/products";
 import CancelSubscriptionButton from "./CancelSubscriptionButton";
 
 interface SubscriptionItemSnapshot {
@@ -192,14 +194,25 @@ export default async function SubscriptionPage() {
             <div className="divide-y divide-white/70">
               {((latestSub.items as unknown as SubscriptionItemSnapshot[]) || []).map(
                 (item, idx) => (
-                  <div key={idx} className="py-3 flex items-center justify-between text-xs">
-                    <div>
-                      <p className="font-bold text-[#001d35] text-sm">{item.name}</p>
-                      <p className="text-slate-500">
-                        {item.quantity} &times; {formatNaira(item.unit_price_ngn)}
-                      </p>
+                  <div key={idx} className="py-3 flex items-center justify-between text-xs gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-12 h-12 rounded-xl bg-sky-50 border border-sky-200/80 overflow-hidden flex items-center justify-center shrink-0 relative shadow-inner">
+                        <Image
+                          src={getProductImage(item.name).src}
+                          alt={getProductImage(item.name).alt}
+                          fill
+                          className="object-contain p-1"
+                          sizes="48px"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-[#001d35] text-sm truncate">{item.name}</p>
+                        <p className="text-slate-500">
+                          {item.quantity} &times; {formatNaira(item.unit_price_ngn)}
+                        </p>
+                      </div>
                     </div>
-                    <span className="font-extrabold text-sm text-[#001d35] tabular-nums">
+                    <span className="font-extrabold text-sm text-[#001d35] tabular-nums shrink-0">
                       {formatNaira(item.unit_price_ngn * item.quantity)}
                     </span>
                   </div>

@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useCart } from "@/components/CartProvider";
 import { formatNaira } from "@/lib/cart";
+import { getProductImage } from "@/lib/products";
 
 export default function CartPage() {
   const { items, updateQuantity, removeItem, clearCart } = useCart();
@@ -78,15 +80,14 @@ export default function CartPage() {
               >
                 {/* Item Details */}
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl water-bubble-glow flex items-center justify-center shrink-0">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      className="w-6 h-6 text-[#0061a5]"
-                    >
-                      <path d="M12 2.25c-2.4 3.75-6.75 9.1-6.75 13.05a6.75 6.75 0 0013.5 0c0-3.95-4.35-9.3-6.75-13.05z" />
-                    </svg>
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-sky-100 to-white border border-sky-200/80 overflow-hidden flex items-center justify-center shrink-0 relative shadow-inner">
+                    <Image
+                      src={getProductImage(item.name).src}
+                      alt={getProductImage(item.name).alt}
+                      fill
+                      className="object-contain p-1"
+                      sizes="48px"
+                    />
                   </div>
                   <div>
                     <h3 className="font-bold text-base text-[#001d35]">{item.name}</h3>

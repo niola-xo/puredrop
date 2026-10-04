@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import type { Product } from "@/lib/types";
 import { formatNaira } from "@/lib/cart";
 import { useCart } from "@/components/CartProvider";
+import { getProductImage } from "@/lib/products";
 
 function getProductBadge(name: string): string | null {
   if (name.includes("5-bag")) return "Popular";
@@ -17,6 +19,7 @@ export default function ProductCard({ product }: { product: Product }) {
   const { addToCart } = useCart();
   const [added, setAdded] = useState(false);
   const badge = getProductBadge(product.name);
+  const imageInfo = getProductImage(product.name);
 
   function handleAdd() {
     addToCart({
@@ -32,20 +35,19 @@ export default function ProductCard({ product }: { product: Product }) {
   return (
     <div className="aero-glass-panel rounded-2xl p-6 flex flex-col justify-between transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-sky-400/20 group">
       <div>
-        {/* Visual Water Refraction Bubble Container */}
-        <div className="w-full h-36 rounded-xl bg-gradient-to-tr from-sky-100/60 to-white/70 flex items-center justify-center mb-5 relative overflow-hidden border border-white/70">
-          <div className="w-20 h-20 rounded-2xl water-bubble-glow flex items-center justify-center shadow-inner">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              className="w-10 h-10 text-[#0061a5]"
-            >
-              <path d="M12 2.25c-2.4 3.75-6.75 9.1-6.75 13.05a6.75 6.75 0 0013.5 0c0-3.95-4.35-9.3-6.75-13.05z" />
-            </svg>
+        {/* Product Visual Container */}
+        <div className="w-full h-44 rounded-xl bg-gradient-to-tr from-sky-100/70 via-white/80 to-sky-50/60 flex items-center justify-center mb-5 relative overflow-hidden border border-white/80 shadow-inner">
+          <div className="relative w-full h-full p-2 flex items-center justify-center">
+            <Image
+              src={imageInfo.src}
+              alt={imageInfo.alt}
+              fill
+              className="object-contain p-2 transition-transform duration-300 group-hover:scale-105"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            />
           </div>
           {badge && (
-            <span className="absolute top-3 right-3 px-2.5 py-0.5 rounded-full bg-[#3cf9dc]/40 text-[#007061] text-xs font-bold border border-[#006b5c]/20">
+            <span className="absolute top-3 right-3 px-2.5 py-0.5 rounded-full bg-[#3cf9dc]/70 backdrop-blur-md text-[#007061] text-xs font-bold border border-[#006b5c]/20 shadow-xs z-10">
               {badge}
             </span>
           )}
