@@ -13,7 +13,10 @@ function normalizeUrl(url: string): string {
 function getCorsHeaders(origin: string | null): Record<string, string> | null {
   if (!origin) return null;
 
-  const allowedOrigins: string[] = [];
+  const allowedOrigins: string[] = [
+    "https://puredrop-mobile.vercel.app",
+    "https://puredrop-swart.vercel.app",
+  ];
 
   if (process.env.MOBILE_APP_URL) {
     allowedOrigins.push(normalizeUrl(process.env.MOBILE_APP_URL));
@@ -27,7 +30,8 @@ function getCorsHeaders(origin: string | null): Record<string, string> | null {
   const isAllowed =
     allowedOrigins.includes(normOrigin) ||
     normOrigin.startsWith("http://localhost:") ||
-    normOrigin.startsWith("http://127.0.0.1:");
+    normOrigin.startsWith("http://127.0.0.1:") ||
+    (normOrigin.endsWith(".vercel.app") && normOrigin.includes("puredrop-mobile"));
 
   if (!isAllowed) {
     return null;
@@ -36,7 +40,7 @@ function getCorsHeaders(origin: string | null): Record<string, string> | null {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, authorization, content-type",
     "Access-Control-Max-Age": "86400",
   };
 }
